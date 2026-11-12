@@ -1,5 +1,8 @@
-const PAYPAL_API_BASE =
-  process.env.PAYPAL_API_BASE || "https://api-m.sandbox.paypal.com";
+function getPayPalApiBase(): string {
+  return (
+    process.env.PAYPAL_API_BASE?.trim() || "https://api-m.sandbox.paypal.com"
+  );
+}
 
 export function isPayPalLiveSandboxConfigured(): boolean {
   const clientId =
@@ -22,7 +25,8 @@ export async function getPayPalAccessToken(): Promise<string> {
   const secret = (process.env.PAYPAL_CLIENT_SECRET || "").trim();
   const auth = Buffer.from(`${clientId}:${secret}`).toString("base64");
 
-  const response = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
+  const apiBase = getPayPalApiBase();
+  const response = await fetch(`${apiBase}/v1/oauth2/token`, {
     method: "POST",
     headers: {
       Authorization: `Basic ${auth}`,
@@ -61,7 +65,8 @@ export async function createAndCapturePayPalOrder(params: {
   if (isPayPalLiveSandboxConfigured()) {
     try {
       const token = await getPayPalAccessToken();
-      const response = await fetch(`${PAYPAL_API_BASE}/v2/checkout/orders`, {
+      const apiBase = getPayPalApiBase();
+      const response = await fetch(`${apiBase}/v2/checkout/orders`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -161,8 +166,9 @@ export async function captureApprovedPayPalOrder(
   if (isPayPalLiveSandboxConfigured()) {
     try {
       const token = await getPayPalAccessToken();
+      const apiBase = getPayPalApiBase();
       const response = await fetch(
-        `${PAYPAL_API_BASE}/v2/checkout/orders/${orderId}/capture`,
+        `${apiBase}/v2/checkout/orders/${orderId}/capture`,
         {
           method: "POST",
           headers: {
@@ -228,7 +234,8 @@ export async function executePayPalMilestonePayout(params: {
   if (isPayPalLiveSandboxConfigured()) {
     try {
       const token = await getPayPalAccessToken();
-      const response = await fetch(`${PAYPAL_API_BASE}/v1/payments/payouts`, {
+      const apiBase = getPayPalApiBase();
+      const response = await fetch(`${apiBase}/v1/payments/payouts`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
