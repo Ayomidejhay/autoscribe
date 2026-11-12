@@ -3,8 +3,8 @@
   publish = ".next"
 
 [build.environment]
-  SECRETS_SCAN_OMIT_PATHS = ".netlify/.next/cache,.netlify/.next"
-  SECRETS_SCAN_OMIT_KEYS = "PAYPAL_API_BASE,PAYPAL_CLIENT_ID,NEXT_PUBLIC_PAYPAL_CLIENT_ID,NEXT_PUBLIC_SUPABASE_ANON_KEY"
+  SECRETS_SCAN_OMIT_PATHS = ".netlify/.next/cache,.netlify/.next,.netlify/functions-internal"
+  SECRETS_SCAN_OMIT_KEYS = "PAYPAL_API_BASE,PAYPAL_CLIENT_ID,NEXT_PUBLIC_PAYPAL_CLIENT_ID,NEXT_PUBLIC_SUPABASE_ANON_KEY,NEXT_PUBLIC_SUPABASE_URL,GITHUB_TOKEN,WEBHOOK_SECRET"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
