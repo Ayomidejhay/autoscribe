@@ -75,6 +75,7 @@ export async function verifyAndPayoutMilestoneAction(params: {
   commitUrl: string;
   previewUrl?: string;
   freelancerPayPalEmail: string;
+  projectRepoUrl?: string;
 }): Promise<{
   verification: AgentVerificationOutput;
   payoutTransaction?: EscrowTransaction;

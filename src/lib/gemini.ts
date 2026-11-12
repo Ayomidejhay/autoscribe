@@ -1,9 +1,10 @@
 import { AcceptanceCriterion } from "@/types/autoscribe";
 
 const GEMINI_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.0-flash",
+  "gemini-3.8-flash",
+  "gemini-2.0-flash-exp",
   "gemini-1.5-flash",
+  "gemini-1.5-pro",
 ];
 
 export function isGeminiConfigured(): boolean {
@@ -67,6 +68,10 @@ async function callGeminiJson<T>(params: {
       });
 
       if (!res.ok) {
+        const errorText = await res.text().catch(() => "");
+        console.warn(
+          `[AutoScribe Gemini] Model ${model} returned HTTP ${res.status}: ${errorText.slice(0, 180)}`
+        );
         continue;
       }
 
@@ -464,6 +469,23 @@ export async function geminiEvaluateCommitDiff(params: {
   summaryNotes: string;
   plainEnglishSummary: string[];
 } | null> {
+  if (params.filesChanged.length === 0) {
+    return {
+      criterionResults: params.criteria.map((c) => ({
+        id: c.id,
+        passed: false,
+        reasoning: "Zero modified files were provided in the commit diff.",
+      })),
+      confidenceScore: 0,
+      summaryNotes: "Submission rejected: commit diff contains 0 modified files.",
+      plainEnglishSummary: [
+        `No code files were modified in commit ${params.commitSha.slice(0, 7) || "diff"}.`,
+        "Your escrow deposit remains safely locked in the PayPal vault.",
+        "The freelancer must commit and push actual deliverable code files to GitHub.",
+      ],
+    };
+  }
+
   if (!isGeminiConfigured()) return null;
 
   interface GeminiDiffEvalResponse {

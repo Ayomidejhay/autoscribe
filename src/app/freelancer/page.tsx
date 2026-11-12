@@ -767,6 +767,19 @@ export default function FreelancerDashboardPage() {
                                     })}
                                   </div>
 
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] font-mono text-[#bbc7c6] px-1 gap-1">
+                                    <span className="flex items-center gap-1.5 flex-wrap">
+                                      <Lock className="w-3 h-3 text-[#cbfffc]" />
+                                      <span>Contract Repository:</span>
+                                      <span className="text-[#cbfffc] font-semibold break-all">
+                                        {activeProject.repo_url}
+                                      </span>
+                                    </span>
+                                    <span className="text-[#bbc7c6]/70 text-[10px]">
+                                      Strict AI Diff & Repo Bound
+                                    </span>
+                                  </div>
+
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                                     <div className="flex items-center gap-3 rounded-[8px] bg-[#012624] px-4 py-3.5">
                                       <GitCommit className="w-4 h-4 text-[#cbfffc] shrink-0" />
@@ -793,6 +806,72 @@ export default function FreelancerDashboardPage() {
                                       />
                                     </div>
                                   </div>
+
+                                  {(() => {
+                                    const isCustomInput =
+                                      !milestonePresets.some(
+                                        (p) =>
+                                          p.commitUrl.toLowerCase() ===
+                                          commitUrlInput.trim().toLowerCase()
+                                      );
+                                    const contractMatch =
+                                      activeProject.repo_url.match(
+                                        /github\.com\/([^/]+)\/([^/]+)/i
+                                      );
+                                    const inputMatch = commitUrlInput
+                                      .trim()
+                                      .match(
+                                        /github\.com\/([^/]+)\/([^/]+)\/commit/i
+                                      );
+                                    if (
+                                      isCustomInput &&
+                                      contractMatch &&
+                                      inputMatch
+                                    ) {
+                                      const expected = `${
+                                        contractMatch[1]
+                                      }/${contractMatch[2].replace(
+                                        /\.git$/i,
+                                        ""
+                                      )}`.toLowerCase();
+                                      const actual = `${
+                                        inputMatch[1]
+                                      }/${inputMatch[2].replace(
+                                        /\.git$/i,
+                                        ""
+                                      )}`.toLowerCase();
+                                      const isPlaceholder =
+                                        contractMatch[1].toLowerCase() ===
+                                        "acme-labs";
+                                      if (!isPlaceholder && expected !== actual) {
+                                        return (
+                                          <div className="text-[11px] font-mono text-amber-300 bg-amber-950/40 border border-amber-500/30 rounded-[8px] p-3 flex items-start gap-2">
+                                            <span className="shrink-0 text-sm">
+                                              ⚠️
+                                            </span>
+                                            <span>
+                                              <strong>
+                                                Repository Mismatch Warning:
+                                              </strong>{" "}
+                                              Submitted commit belongs to{" "}
+                                              <code className="text-white bg-black/40 px-1 py-0.5 rounded">
+                                                {actual}
+                                              </code>
+                                              , but this contract is strictly bound
+                                              to{" "}
+                                              <code className="text-[#cbfffc] bg-black/40 px-1 py-0.5 rounded">
+                                                {expected}
+                                              </code>
+                                              . The AutoScribe Agent will reject
+                                              external commits to protect escrow
+                                              integrity.
+                                            </span>
+                                          </div>
+                                        );
+                                      }
+                                    }
+                                    return null;
+                                  })()}
 
                                   <button
                                     disabled={

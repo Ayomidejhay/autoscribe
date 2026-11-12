@@ -918,6 +918,7 @@ export function AutoScribeProvider({
           commitUrl,
           previewUrl,
           freelancerPayPalEmail: recipientPayPal,
+          projectRepoUrl: project.repo_url,
         });
 
       for (let i = 1; i <= verification.logs.length; i++) {
