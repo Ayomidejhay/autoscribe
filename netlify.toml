@@ -4,7 +4,7 @@
 
 [build.environment]
   SECRETS_SCAN_OMIT_PATHS = ".netlify/.next/cache"
-  SECRETS_SCAN_OMIT_KEYS = "PAYPAL_API_BASE"
+  SECRETS_SCAN_OMIT_KEYS = "PAYPAL_API_BASE,PAYPAL_CLIENT_ID"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

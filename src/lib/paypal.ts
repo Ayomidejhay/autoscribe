@@ -6,7 +6,7 @@ function getPayPalApiBase(): string {
 
 export function isPayPalLiveSandboxConfigured(): boolean {
   const clientId =
-    process.env.PAYPAL_CLIENT_ID || process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
+    process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || process.env.PAYPAL_CLIENT_ID;
   const secret = process.env.PAYPAL_CLIENT_SECRET;
   return Boolean(
     clientId &&
@@ -18,8 +18,8 @@ export function isPayPalLiveSandboxConfigured(): boolean {
 
 export async function getPayPalAccessToken(): Promise<string> {
   const clientId = (
-    process.env.PAYPAL_CLIENT_ID ||
     process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ||
+    process.env.PAYPAL_CLIENT_ID ||
     ""
   ).trim();
   const secret = (process.env.PAYPAL_CLIENT_SECRET || "").trim();
