@@ -13,14 +13,17 @@ export function getSupabaseCredentials(): {
   anonKey: string;
   isConfigured: boolean;
 } {
+  const currentUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const currentAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+
   const envValid =
-    Boolean(envUrl) &&
-    Boolean(envAnonKey) &&
-    !envUrl.includes("your-project-id") &&
-    !envAnonKey.includes("your-supabase");
+    Boolean(currentUrl) &&
+    Boolean(currentAnonKey) &&
+    !currentUrl.includes("your-project-id") &&
+    !currentAnonKey.includes("your-supabase");
 
   if (envValid) {
-    return { url: envUrl, anonKey: envAnonKey, isConfigured: true };
+    return { url: currentUrl, anonKey: currentAnonKey, isConfigured: true };
   }
 
   if (typeof window !== "undefined") {
@@ -76,12 +79,24 @@ export function saveRuntimeSupabaseCredentials(url: string, anonKey: string) {
   cachedUrl = "";
 }
 
-export const isSupabaseConfigured =
-  Boolean(envUrl) &&
-  Boolean(envAnonKey) &&
-  !envUrl.includes("your-project-id") &&
-  !envAnonKey.includes("your-supabase");
+export function isServerSupabaseConfigured(): boolean {
+  const currentUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const currentAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+  return (
+    Boolean(currentUrl) &&
+    Boolean(currentAnonKey) &&
+    !currentUrl.includes("your-project-id") &&
+    !currentAnonKey.includes("your-supabase")
+  );
+}
 
-export const supabase = isSupabaseConfigured
-  ? createClient(envUrl, envAnonKey)
-  : null;
+export function getServerSupabaseClient(): SupabaseClient | null {
+  const currentUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const currentAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+  if (!isServerSupabaseConfigured()) return null;
+  return createClient(currentUrl, currentAnonKey);
+}
+
+// Deprecated export aliases kept for backwards compatibility
+export const isSupabaseConfigured = isServerSupabaseConfigured();
+export const supabase = getServerSupabaseClient();

@@ -17,7 +17,7 @@ import {
   geminiDecomposeProjectScope,
   geminiSynthesizeMilestoneCriteria,
 } from "@/lib/gemini";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { getServerSupabaseClient } from "@/lib/supabase";
 
 export async function fundMilestoneAction(params: {
   milestoneId: string;
@@ -46,7 +46,8 @@ export async function fundMilestoneAction(params: {
     mode: result.mode,
   };
 
-  if (isSupabaseConfigured && supabase) {
+  const supabase = getServerSupabaseClient();
+  if (supabase) {
     await supabase
       .from("milestones")
       .update({ status: "funded" })
@@ -97,7 +98,8 @@ export async function verifyAndPayoutMilestoneAction(params: {
     };
   }
 
-  if (isSupabaseConfigured && supabase) {
+  const supabase = getServerSupabaseClient();
+  if (supabase) {
     const newStatus = verification.securityBlocked
       ? "disputed"
       : verification.passed
@@ -181,7 +183,8 @@ export async function releaseCopilotPayoutAction(params: {
     mode: payout.mode,
   };
 
-  if (isSupabaseConfigured && supabase) {
+  const supabase = getServerSupabaseClient();
+  if (supabase) {
     await supabase
       .from("milestones")
       .update({ status: "paid" })
@@ -208,7 +211,8 @@ export async function releaseCopilotPayoutAction(params: {
 export async function resetDisputedMilestoneAction(params: {
   milestoneId: string;
 }): Promise<{ success: boolean }> {
-  if (isSupabaseConfigured && supabase) {
+  const supabase = getServerSupabaseClient();
+  if (supabase) {
     await supabase
       .from("milestones")
       .update({
@@ -253,7 +257,8 @@ export async function refundDisputedMilestoneAction(params: {
     mode: "live_sandbox",
   };
 
-  if (isSupabaseConfigured && supabase) {
+  const supabase = getServerSupabaseClient();
+  if (supabase) {
     await supabase
       .from("milestones")
       .update({
