@@ -25,6 +25,7 @@ import {
   Trash2,
   RotateCcw,
   RefreshCw,
+  Pencil,
 } from "lucide-react";
 import { useAutoScribe } from "@/context/AutoScribeStore";
 import { Milestone, MilestoneStatus, Project } from "@/types/autoscribe";
@@ -35,6 +36,7 @@ import {
 import { PayPalCheckoutModal } from "@/components/PayPalCheckoutModal";
 import { AgentLiveTerminal } from "@/components/AgentLiveTerminal";
 import { NewMilestoneModal } from "@/components/NewMilestoneModal";
+import { EditMilestoneModal } from "@/components/EditMilestoneModal";
 import { NewProjectInviteModal } from "@/components/NewProjectInviteModal";
 import { MolecularDiagram } from "@/components/MolecularDiagram";
 
@@ -49,6 +51,7 @@ export default function ClientDashboardPage() {
     updateUserProfile,
     createProject,
     createMilestone,
+    updateMilestone,
     deleteProject,
     deleteMilestone,
     toggleReleaseMode,
@@ -68,6 +71,9 @@ export default function ClientDashboardPage() {
   );
 
   const [fundingMilestone, setFundingMilestone] = useState<Milestone | null>(
+    null
+  );
+  const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(
     null
   );
   const [isNewMilestoneOpen, setIsNewMilestoneOpen] = useState<boolean>(false);
@@ -686,6 +692,20 @@ export default function ClientDashboardPage() {
                                       ? "Autonomous (≥90%)"
                                       : "Co-Pilot"}
                                   </span>
+                                  {ms.status !== "paid" && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingMilestone(ms);
+                                      }}
+                                      className="px-2.5 py-1 rounded-[6px] bg-[#011d1c] hover:bg-[#003734] border border-white/10 hover:border-[#cbfffc]/40 text-[#cbfffc] text-[11px] font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
+                                      title="Edit Milestone & Acceptance Criteria"
+                                    >
+                                      <Pencil className="w-3 h-3" />
+                                      <span>Edit Rubric</span>
+                                    </button>
+                                  )}
                                 </div>
 
                                 <div className="flex items-center gap-4">
@@ -1341,6 +1361,15 @@ export default function ClientDashboardPage() {
                 setSelectedMilestoneId(created.id);
                 toast.success(`Appended "${created.title}" in Supabase.`);
               }
+            }}
+          />
+
+          <EditMilestoneModal
+            isOpen={Boolean(editingMilestone)}
+            milestone={editingMilestone}
+            onClose={() => setEditingMilestone(null)}
+            onSave={async (milestoneId, updates) => {
+              return await updateMilestone(milestoneId, updates);
             }}
           />
         </>

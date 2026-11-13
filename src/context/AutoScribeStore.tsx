@@ -65,6 +65,10 @@ interface AutoScribeContextValue {
   createMilestone: (
     milestone: Omit<Milestone, "id" | "created_at">
   ) => Promise<Milestone | null>;
+  updateMilestone: (
+    milestoneId: string,
+    updates: Partial<Omit<Milestone, "id" | "project_id" | "created_at">>
+  ) => Promise<boolean>;
   deleteProject: (projectId: string) => Promise<boolean>;
   deleteMilestone: (milestoneId: string) => Promise<boolean>;
   acceptProjectInvite: (
@@ -697,6 +701,31 @@ export function AutoScribeProvider({
     [currentUser, fetchAllWorkspaceData, projects]
   );
 
+  const updateMilestone = useCallback(
+    async (
+      milestoneId: string,
+      updates: Partial<Omit<Milestone, "id" | "project_id" | "created_at">>
+    ): Promise<boolean> => {
+      const sb = getSupabaseBrowserClient();
+      if (!sb || !currentUser) return false;
+
+      const { error } = await sb
+        .from("milestones")
+        .update(updates)
+        .eq("id", milestoneId);
+
+      if (error) {
+        toast.error(`Failed to update milestone: ${error.message}`);
+        return false;
+      }
+
+      toast.success("Milestone updated successfully");
+      await fetchAllWorkspaceData(currentUser);
+      return true;
+    },
+    [currentUser, fetchAllWorkspaceData]
+  );
+
   const deleteProject = useCallback(
     async (projectId: string): Promise<boolean> => {
       const sb = getSupabaseBrowserClient();
@@ -1133,6 +1162,7 @@ export function AutoScribeProvider({
         logout,
         createProject,
         createMilestone,
+        updateMilestone,
         deleteProject,
         deleteMilestone,
         acceptProjectInvite,
