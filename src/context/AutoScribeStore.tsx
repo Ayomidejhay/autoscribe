@@ -614,6 +614,7 @@ export function AutoScribeProvider({
           title: newProj.title,
           description: newProj.description,
           repo_url: newProj.repo_url,
+          deliverable_type: newProj.deliverable_type || "code",
           client_id: currentUser.id,
           client_name: currentUser.name,
           client_email: currentUser.email,
@@ -645,6 +646,7 @@ export function AutoScribeProvider({
           amount: m.amount,
           status: "pending",
           release_mode: m.release_mode,
+          deliverable_type: m.deliverable_type || newProj.deliverable_type || "code",
           acceptance_criteria: m.acceptance_criteria,
         }));
 
@@ -925,11 +927,11 @@ export function AutoScribeProvider({
         prev.map((m) =>
           m.id === milestone.id
             ? {
-                ...m,
-                status: "verifying",
-                github_commit_url: commitUrl,
-                preview_url: previewUrl,
-              }
+              ...m,
+              status: "verifying",
+              github_commit_url: commitUrl,
+              preview_url: previewUrl,
+            }
             : m
         )
       );
@@ -948,6 +950,8 @@ export function AutoScribeProvider({
           previewUrl,
           freelancerPayPalEmail: recipientPayPal,
           projectRepoUrl: project.repo_url,
+          deliverableType:
+            project.deliverable_type || milestone.deliverable_type || "code",
         });
 
       for (let i = 1; i <= verification.logs.length; i++) {
@@ -958,10 +962,10 @@ export function AutoScribeProvider({
       const nextStatus: MilestoneStatus = verification.securityBlocked
         ? "disputed"
         : verification.passed
-        ? verification.payoutResult
-          ? "paid"
-          : "verified"
-        : "revision_requested";
+          ? verification.payoutResult
+            ? "paid"
+            : "verified"
+          : "revision_requested";
 
       if (sb) {
         await sb
@@ -1009,8 +1013,7 @@ export function AutoScribeProvider({
 
       if (payoutTransaction) {
         toast.success(
-          `Verified (${verification.confidenceScore}%) — PayPal Payout [${
-            payoutTransaction.paypal_payout_batch_id
+          `Verified (${verification.confidenceScore}%) — PayPal Payout [${payoutTransaction.paypal_payout_batch_id
           }] dispatched $${milestone.amount.toFixed(2)} to ${recipientPayPal}`
         );
       } else if (verification.passed) {
@@ -1064,8 +1067,7 @@ export function AutoScribeProvider({
 
       await fetchAllWorkspaceData(currentUser);
       toast.success(
-        `PayPal Payout Batch [${
-          res.payoutBatchId
+        `PayPal Payout Batch [${res.payoutBatchId
         }] Disbursed $${milestone.amount.toFixed(2)} to ${recipientPayPal}!`
       );
     },

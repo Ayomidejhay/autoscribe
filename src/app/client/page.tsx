@@ -26,6 +26,10 @@ import {
   RotateCcw,
   RefreshCw,
   Pencil,
+  Code2,
+  Palette,
+  Database,
+  Package,
 } from "lucide-react";
 import { useAutoScribe } from "@/context/AutoScribeStore";
 import { Milestone, MilestoneStatus, Project } from "@/types/autoscribe";
@@ -39,6 +43,21 @@ import { NewMilestoneModal } from "@/components/NewMilestoneModal";
 import { EditMilestoneModal } from "@/components/EditMilestoneModal";
 import { NewProjectInviteModal } from "@/components/NewProjectInviteModal";
 import { MolecularDiagram } from "@/components/MolecularDiagram";
+
+function getDeliverableCategoryMeta(type?: string) {
+  switch (type) {
+    case "design":
+      return { label: "Design", icon: Palette, color: "text-[#fde9ff] bg-[#260b1e] border-[#fde9ff]/30" };
+    case "content":
+      return { label: "Content", icon: FileText, color: "text-[#ffeaa7] bg-[#2d2407] border-[#ffeaa7]/30" };
+    case "data":
+      return { label: "Data", icon: Database, color: "text-[#70a1ff] bg-[#0c1c38] border-[#70a1ff]/30" };
+    case "general":
+      return { label: "Deliverable", icon: Package, color: "text-[#a8ffb2] bg-[#0d2a14] border-[#a8ffb2]/30" };
+    default:
+      return { label: "Code", icon: Code2, color: "text-[#cbfffc] bg-[#011d1c] border-[#cbfffc]/30" };
+  }
+}
 
 export default function ClientDashboardPage() {
   const {
@@ -397,6 +416,8 @@ export default function ClientDashboardPage() {
                     const paidCount = projMs.filter(
                       (m) => m.status === "paid"
                     ).length;
+                    const catMeta = getDeliverableCategoryMeta(proj.deliverable_type);
+                    const CategoryIcon = catMeta.icon;
 
                     return (
                       <div
@@ -409,17 +430,23 @@ export default function ClientDashboardPage() {
                       >
                         <div className="space-y-4">
                           <div className="flex items-center justify-between gap-3">
-                            <span
-                              className={`px-2.5 py-1 rounded-[6px] text-[10px] uppercase tracking-[0.13em] ${
-                                proj.invite_status === "pending_invite"
-                                  ? "bg-[#012624] text-[#fde9ff]"
-                                  : "bg-[#012624] text-[#cbfffc]"
-                              }`}
-                            >
-                              {proj.invite_status === "pending_invite"
-                                ? "Invite Pending"
-                                : "Bound Contract"}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`px-2.5 py-1 rounded-[6px] text-[10px] uppercase tracking-[0.13em] ${
+                                  proj.invite_status === "pending_invite"
+                                    ? "bg-[#012624] text-[#fde9ff]"
+                                    : "bg-[#012624] text-[#cbfffc]"
+                                }`}
+                              >
+                                {proj.invite_status === "pending_invite"
+                                  ? "Invite Pending"
+                                  : "Bound Contract"}
+                              </span>
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[10px] uppercase font-mono tracking-wider border ${catMeta.color}`}>
+                                <CategoryIcon className="w-3 h-3" />
+                                {catMeta.label}
+                              </span>
+                            </div>
                             <span className="font-mono text-sm text-[#fde9ff]">
                               $
                               {proj.total_budget.toLocaleString("en-US", {
@@ -626,45 +653,53 @@ export default function ClientDashboardPage() {
                     )}
 
                     {/* Contract Subheader */}
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div className="flex flex-wrap items-center gap-4">
-                        <span className="auros-kicker">
-                          Contractor: {activeProject.freelancer_name} (
-                          {activeProject.invited_freelancer_email})
-                        </span>
-                        <span className="text-[#707777]">•</span>
-                        <a
-                          href={activeProject.repo_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-mono text-xs text-[#cbfffc] hover:underline flex items-center gap-1.5"
-                        >
-                          <GitCommit className="w-3.5 h-3.5" />
-                          {activeProject.repo_url.replace(
-                            "https://github.com/",
-                            ""
-                          )}
-                        </a>
-                      </div>
+                    {(() => {
+                      const activeCatMeta = getDeliverableCategoryMeta(activeProject.deliverable_type);
+                      const ActiveCategoryIcon = activeCatMeta.icon;
 
-                      <div className="flex flex-wrap items-center gap-3">
-                        <button
-                          onClick={() => setProjectToDelete(activeProject)}
-                          className="px-4 py-3 rounded-[6px] bg-[#011d1c] hover:bg-[#260b12] border border-white/10 hover:border-[#ff6b81]/50 text-[11px] uppercase tracking-[0.12em] text-[#ff8597] font-medium flex items-center gap-2 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          <span>Delete Contract</span>
-                        </button>
+                      return (
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                          <div className="flex flex-wrap items-center gap-4">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] text-[11px] uppercase font-mono tracking-wider border ${activeCatMeta.color}`}>
+                              <ActiveCategoryIcon className="w-3.5 h-3.5" />
+                              {activeCatMeta.label}
+                            </span>
+                            <span className="auros-kicker">
+                              Contractor: {activeProject.freelancer_name} (
+                              {activeProject.invited_freelancer_email})
+                            </span>
+                            <span className="text-[#707777]">•</span>
+                            <a
+                              href={activeProject.repo_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-mono text-xs text-[#cbfffc] hover:underline flex items-center gap-1.5"
+                            >
+                              <ActiveCategoryIcon className="w-3.5 h-3.5" />
+                              {activeProject.repo_url.replace(/^https?:\/\/(www\.)?(github\.com\/)?/, "")}
+                            </a>
+                          </div>
 
-                        <button
-                          onClick={() => setIsNewMilestoneOpen(true)}
-                          className="px-5 py-3 rounded-[6px] bg-[#003734] hover:bg-[#00827c]/40 text-[11px] uppercase tracking-[0.12em] text-white font-medium flex items-center gap-2 cursor-pointer"
-                        >
-                          <Plus className="w-4 h-4 text-[#cbfffc]" />
-                          <span>Append Milestone</span>
-                        </button>
-                      </div>
-                    </div>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <button
+                              onClick={() => setProjectToDelete(activeProject)}
+                              className="px-4 py-3 rounded-[6px] bg-[#011d1c] hover:bg-[#260b12] border border-white/10 hover:border-[#ff6b81]/50 text-[11px] uppercase tracking-[0.12em] text-[#ff8597] font-medium flex items-center gap-2 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span>Delete Contract</span>
+                            </button>
+
+                            <button
+                              onClick={() => setIsNewMilestoneOpen(true)}
+                              className="px-5 py-3 rounded-[6px] bg-[#003734] hover:bg-[#00827c]/40 text-[11px] uppercase tracking-[0.12em] text-white font-medium flex items-center gap-2 cursor-pointer"
+                            >
+                              <Plus className="w-4 h-4 text-[#cbfffc]" />
+                              <span>Append Milestone</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* 2-Column Workspace: Milestones (Left) + AI Telemetry & Ledger (Right) */}
                     <div className="grid grid-cols-1 xl:grid-cols-12 gap-10 items-start">

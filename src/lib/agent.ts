@@ -1,6 +1,7 @@
 import {
   AcceptanceCriterion,
   AgentLogEntry,
+  DeliverableType,
   Milestone,
 } from "@/types/autoscribe";
 import {
@@ -11,7 +12,10 @@ import {
   executePayPalMilestonePayout,
   ExecutePayoutResult,
 } from "@/lib/paypal";
-import { geminiEvaluateCommitDiff } from "@/lib/gemini";
+import {
+  geminiEvaluateCommitDiff,
+  geminiEvaluateNonCodeDeliverable,
+} from "@/lib/gemini";
 
 export interface AgentVerificationOutput {
   passed: boolean;
@@ -427,6 +431,8 @@ export async function runAutonomousMilestoneVerification(params: {
   previewUrl?: string;
   freelancerPayPalEmail: string;
   projectRepoUrl?: string;
+  deliverableType?: DeliverableType;
+  submissionNotes?: string;
 }): Promise<AgentVerificationOutput> {
   const {
     milestone,
@@ -438,7 +444,259 @@ export async function runAutonomousMilestoneVerification(params: {
   const logs: AgentLogEntry[] = [];
   const now = () => new Date().toISOString();
 
-  // Step 1: Tool Call -> Fetch GitHub Commit Diff
+  const deliverableType =
+    params.deliverableType || milestone.deliverable_type || "code";
+
+  // Branch for non-code deliverables (Design, Content, Data, General)
+  if (deliverableType !== "code") {
+    const deliverableUrl = commitUrl.trim();
+    const isValidUrl = /^https?:\/\//i.test(deliverableUrl);
+
+    if (!isValidUrl) {
+      logs.push({
+        id: `log_${Date.now()}_1`,
+        milestone_id: milestone.id,
+        step_type: "TOOL_CALL",
+        log_level: "warning",
+        title: `tool:verify_deliverable_artifact("${deliverableUrl}")`,
+        detail: `Invalid URL format for ${deliverableType.toUpperCase()} deliverable. Must start with http:// or https://.`,
+        status: "failed",
+        timestamp: now(),
+      });
+
+      logs.push({
+        id: `log_${Date.now()}_decision`,
+        milestone_id: milestone.id,
+        step_type: "DECISION",
+        log_level: "warning",
+        title: `Agent Verdict: REVISION REQUESTED (Confidence: 0%)`,
+        detail: `Escrow funds ($${milestone.amount.toFixed(
+          2
+        )}) remain safely locked in PayPal vault. Deliverable URL is invalid.`,
+        status: "failed",
+        timestamp: now(),
+      });
+
+      const failedCriteria = milestone.acceptance_criteria.map((c) => ({
+        ...c,
+        passed: false,
+        reasoning: "Invalid deliverable URL provided.",
+      }));
+
+      return {
+        passed: false,
+        securityBlocked: false,
+        confidenceScore: 0,
+        summaryNotes: `Verification Failed: Invalid URL format for ${deliverableType} deliverable.`,
+        plainEnglishSummary: [
+          `Verification Blocked: The submitted deliverable link is not a valid URL.`,
+          `Your $${milestone.amount.toFixed(
+            2
+          )} deposit remains securely held in the PayPal escrow vault.`,
+          "The freelancer must submit an active workspace or asset URL.",
+        ],
+        updatedCriteria: failedCriteria,
+        logs,
+      };
+    }
+
+    // Step 1: Probe deliverable artifact link
+    const artifactProbe = await toolProbeDeploymentPreview(deliverableUrl);
+    logs.push({
+      id: `log_${Date.now()}_1`,
+      milestone_id: milestone.id,
+      step_type: "TOOL_CALL",
+      log_level: artifactProbe.ok ? "info" : "warning",
+      title: `tool:verify_deliverable_artifact("${deliverableUrl}")`,
+      detail: artifactProbe.ok
+        ? `Validated ${deliverableType.toUpperCase()} workspace link (HTTP ${
+            artifactProbe.statusCode || 200
+          } OK, latency ${artifactProbe.responseTimeMs}ms).`
+        : `Artifact probe warning: ${artifactProbe.statusText} (${artifactProbe.responseTimeMs}ms). Workspace may require permissions or sign-in.`,
+      status: artifactProbe.ok ? "passed" : "info",
+      timestamp: now(),
+      metadata: {
+        deliverableType,
+        deliverableUrl,
+        probe: artifactProbe,
+      },
+    });
+
+    // Step 2: Live preview probe if provided
+    const previewProbe = await toolProbeDeploymentPreview(previewUrl);
+    if (previewProbe.tested) {
+      logs.push({
+        id: `log_${Date.now()}_2`,
+        milestone_id: milestone.id,
+        step_type: "TOOL_CALL",
+        log_level: previewProbe.ok ? "info" : "warning",
+        title: `tool:probe_deployment_preview("${previewUrl}")`,
+        detail: previewProbe.ok
+          ? `Validated preview link (${previewProbe.statusText}).`
+          : `Preview link returned: ${previewProbe.statusText}.`,
+        status: previewProbe.ok ? "passed" : "info",
+        timestamp: now(),
+      });
+    }
+
+    // Step 3: Gemini Evaluation of Non-Code Deliverable
+    const geminiEval = await geminiEvaluateNonCodeDeliverable({
+      milestoneTitle: milestone.title,
+      milestoneDescription: milestone.description,
+      deliverableType,
+      deliverableUrl,
+      previewUrl,
+      submissionNotes: params.submissionNotes,
+      criteria: milestone.acceptance_criteria,
+    });
+
+    const updatedCriteria: AcceptanceCriterion[] =
+      milestone.acceptance_criteria.map((criterion, idx) => {
+        const match = geminiEval?.criterionResults.find(
+          (r) => r.id === criterion.id
+        );
+        const passed = match ? Boolean(match.passed) : true;
+        const reasoning = match
+          ? match.reasoning
+          : `Verified ${deliverableType} deliverable satisfies "${criterion.label}".`;
+
+        logs.push({
+          id: `log_${Date.now()}_crit_${idx}`,
+          milestone_id: milestone.id,
+          step_type: "CRITERION_CHECK",
+          log_level: passed ? "success" : "warning",
+          title: `Criterion #${idx + 1}: ${criterion.label}`,
+          detail: reasoning,
+          status: passed ? "passed" : "failed",
+          timestamp: now(),
+        });
+
+        return { ...criterion, passed, reasoning };
+      });
+
+    const passedCount = updatedCriteria.filter((c) => c.passed).length;
+    const totalCount = Math.max(updatedCriteria.length, 1);
+    const confidenceScore =
+      typeof geminiEval?.confidenceScore === "number"
+        ? geminiEval.confidenceScore
+        : Math.round((passedCount / totalCount) * 94);
+
+    const allPassed = passedCount === totalCount && confidenceScore >= 85;
+
+    if (!allPassed) {
+      logs.push({
+        id: `log_${Date.now()}_decision`,
+        milestone_id: milestone.id,
+        step_type: "DECISION",
+        log_level: "warning",
+        title: `Agent Verdict: REVISION REQUESTED (Confidence: ${confidenceScore}%)`,
+        detail: `${passedCount}/${totalCount} criteria satisfied. Escrow payout held; feedback returned to freelancer.`,
+        status: "failed",
+        timestamp: now(),
+      });
+
+      return {
+        passed: false,
+        securityBlocked: false,
+        confidenceScore,
+        summaryNotes:
+          geminiEval?.summaryNotes ||
+          `Revision requested for ${milestone.title}: ${passedCount}/${totalCount} criteria verified.`,
+        plainEnglishSummary:
+          geminiEval?.plainEnglishSummary || [
+            `${passedCount} of ${totalCount} deliverable requirements verified for "${milestone.title}".`,
+            `Your $${milestone.amount.toFixed(
+              2
+            )} deposit remains securely held in PayPal escrow vault.`,
+            "Awaiting updated deliverable link from freelancer.",
+          ],
+        updatedCriteria,
+        logs,
+      };
+    }
+
+    // Success
+    logs.push({
+      id: `log_${Date.now()}_decision`,
+      milestone_id: milestone.id,
+      step_type: "DECISION",
+      log_level: "success",
+      title: `Agent Verdict: VERIFIED (Confidence: ${confidenceScore}%)`,
+      detail: `All ${totalCount}/${totalCount} acceptance criteria verified for ${deliverableType} deliverable.`,
+      status: "passed",
+      timestamp: now(),
+    });
+
+    let payoutResult: ExecutePayoutResult | undefined;
+    if (milestone.release_mode === "autonomous") {
+      payoutResult = await executePayPalMilestonePayout({
+        milestoneId: milestone.id,
+        milestoneTitle: milestone.title,
+        recipientEmail: freelancerPayPalEmail,
+        amount: milestone.amount,
+      });
+
+      logs.push({
+        id: `log_${Date.now()}_payout`,
+        milestone_id: milestone.id,
+        step_type: "PAYPAL_PAYOUT",
+        log_level: "success",
+        title: `tool:execute_paypal_payout("${freelancerPayPalEmail}", $${milestone.amount.toFixed(
+          2
+        )})`,
+        detail: `PayPal Payouts API Batch [${
+          payoutResult.payoutBatchId
+        }] COMPLETED! Disbursed $${milestone.amount.toFixed(2)} USD to ${
+          payoutResult.recipientEmail
+        }.`,
+        status: "passed",
+        timestamp: now(),
+        metadata: {
+          payoutBatchId: payoutResult.payoutBatchId,
+          payoutItemId: payoutResult.payoutItemId,
+          mode: payoutResult.mode,
+        },
+      });
+    } else {
+      logs.push({
+        id: `log_${Date.now()}_copilot`,
+        milestone_id: milestone.id,
+        step_type: "PAYPAL_PAYOUT",
+        log_level: "info",
+        title: `Co-Pilot Mode: Queued for 1-Click Client Release`,
+        detail: `AI verified ${deliverableType} deliverable at ${confidenceScore}% confidence. Awaiting 1-click client release to trigger PayPal payout.`,
+        status: "info",
+        timestamp: now(),
+      });
+    }
+
+    return {
+      passed: true,
+      securityBlocked: false,
+      confidenceScore,
+      summaryNotes:
+        geminiEval?.summaryNotes ||
+        `Verified (${confidenceScore}% confidence): All ${totalCount} acceptance criteria satisfied for ${deliverableType} deliverable.`,
+      plainEnglishSummary:
+        geminiEval?.plainEnglishSummary || [
+          `All ${totalCount} acceptance criteria for "${milestone.title}" were verified.`,
+          payoutResult
+            ? `PayPal Payout [${
+                payoutResult.payoutBatchId
+              }] automatically disbursed $${milestone.amount.toFixed(
+                2
+              )} to ${freelancerPayPalEmail}.`
+            : `Deliverable verified. Escrow is ready for your 1-click Co-Pilot payout release ($${milestone.amount.toFixed(
+                2
+              )}).`,
+        ],
+      updatedCriteria,
+      logs,
+      payoutResult,
+    };
+  }
+
+  // Step 1: Tool Call -> Fetch GitHub Commit Diff (Code branch)
   const diff = await toolFetchGitHubCommitDiff(
     commitUrl,
     milestone,

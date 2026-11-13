@@ -2,6 +2,7 @@
 
 import {
   AcceptanceCriterion,
+  DeliverableType,
   EscrowTransaction,
   Milestone,
 } from "@/types/autoscribe";
@@ -76,6 +77,8 @@ export async function verifyAndPayoutMilestoneAction(params: {
   previewUrl?: string;
   freelancerPayPalEmail: string;
   projectRepoUrl?: string;
+  deliverableType?: DeliverableType;
+  submissionNotes?: string;
 }): Promise<{
   verification: AgentVerificationOutput;
   payoutTransaction?: EscrowTransaction;
@@ -306,6 +309,7 @@ export async function refundDisputedMilestoneAction(params: {
 export async function generateSmartCriteriaAction(params: {
   title: string;
   description: string;
+  deliverableType?: DeliverableType;
 }): Promise<AcceptanceCriterion[]> {
   return await geminiSynthesizeMilestoneCriteria(params);
 }
@@ -314,6 +318,7 @@ export async function generateProjectScopeBreakdownAction(params: {
   title: string;
   description: string;
   totalBudget: number;
+  deliverableType?: DeliverableType;
 }): Promise<
   {
     title: string;

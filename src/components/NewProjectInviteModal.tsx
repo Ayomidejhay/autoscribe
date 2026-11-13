@@ -15,6 +15,10 @@ import {
   DollarSign,
   ShieldCheck,
   Code2,
+  Palette,
+  FileText,
+  Database,
+  Package,
   Plus,
   Trash2,
   ChevronDown,
@@ -28,6 +32,7 @@ import {
 } from "lucide-react";
 import {
   AcceptanceCriterion,
+  DeliverableType,
   Milestone,
   Project,
   ReleaseMode,
@@ -44,7 +49,75 @@ export interface GeneratedMilestoneDraft {
   amount: number;
   release_mode: ReleaseMode;
   acceptance_criteria: AcceptanceCriterion[];
+  deliverable_type?: DeliverableType;
 }
+
+export const DELIVERABLE_CATEGORIES: {
+  id: DeliverableType;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  tagline: string;
+  artifactLabel: string;
+  artifactPlaceholder: string;
+  defaultArtifactUrl: string;
+  briefPlaceholder: string;
+}[] = [
+  {
+    id: "code",
+    label: "Software & Code",
+    icon: Code2,
+    tagline: "GitHub diffs, AST tests & previews",
+    artifactLabel: "GITHUB REPOSITORY (LOCKED)",
+    artifactPlaceholder: "https://github.com/owner/repo",
+    defaultArtifactUrl: "https://github.com/horizon-labs/repository",
+    briefPlaceholder:
+      "Outline key features, API routes, and components (e.g. 1. PDF resume upload & parser API, 2. Vector similarity matching engine, 3. Candidate scoring dashboard)...",
+  },
+  {
+    id: "design",
+    label: "UI/UX & Design",
+    icon: Palette,
+    tagline: "Figma files, design tokens & prototypes",
+    artifactLabel: "FIGMA FILE / WORKSPACE URL",
+    artifactPlaceholder: "https://figma.com/file/...",
+    defaultArtifactUrl: "https://figma.com/file/horizon-design-system",
+    briefPlaceholder:
+      "Outline key screens, user flows, and artboard specifications (e.g. 1. Wireframes & responsive design tokens, 2. High-fidelity web & mobile screens, 3. Interactive prototype & asset exports)...",
+  },
+  {
+    id: "content",
+    label: "Writing & Content",
+    icon: FileText,
+    tagline: "Docs, SEO copy, reports & articles",
+    artifactLabel: "GOOGLE DOC / NOTION DRAFT URL",
+    artifactPlaceholder: "https://docs.google.com/document/d/...",
+    defaultArtifactUrl: "https://docs.google.com/document/d/horizon-editorial",
+    briefPlaceholder:
+      "List deliverables, topics, and word count expectations (e.g. 1. Keyword research & structural outline, 2. Comprehensive 2,500-word draft with citations, 3. Editorial polish, SEO metadata & final delivery)...",
+  },
+  {
+    id: "data",
+    label: "Data & Analytics",
+    icon: Database,
+    tagline: "Spreadsheets, clean datasets & charts",
+    artifactLabel: "GOOGLE SHEET / DATASET URL",
+    artifactPlaceholder: "https://docs.google.com/spreadsheets/d/...",
+    defaultArtifactUrl: "https://docs.google.com/spreadsheets/d/horizon-dataset",
+    briefPlaceholder:
+      "Specify dataset schema, target row count, and analysis goals (e.g. 1. Data extraction & schema definition, 2. 1,000+ cleaned and deduplicated enterprise records, 3. Verification summary & interactive sheet)...",
+  },
+  {
+    id: "general",
+    label: "General & Media",
+    icon: Package,
+    tagline: "Media files, slide decks & deliverables",
+    artifactLabel: "ASSET DELIVERY / DRIVE FOLDER URL",
+    artifactPlaceholder: "https://drive.google.com/drive/folders/...",
+    defaultArtifactUrl: "https://drive.google.com/drive/folders/horizon-assets",
+    briefPlaceholder:
+      "Describe the scope of work and expected final assets (e.g. 1. Project discovery & initial asset concept, 2. Complete slide deck / media delivery package, 3. Revisions & final production files)...",
+  },
+];
 
 interface NewProjectInviteModalProps {
   isOpen: boolean;
@@ -65,6 +138,8 @@ export function NewProjectInviteModal({
 }: NewProjectInviteModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [deliverableType, setDeliverableType] =
+    useState<DeliverableType>("code");
   const [repoUrl, setRepoUrl] = useState(
     "https://github.com/horizon-labs/repository"
   );
@@ -91,12 +166,21 @@ export function NewProjectInviteModal({
 
   if (!isOpen) return null;
 
+  const activeCategory =
+    DELIVERABLE_CATEGORIES.find((c) => c.id === deliverableType) ||
+    DELIVERABLE_CATEGORIES[0];
+
   const totalAllocated = generatedMilestones.reduce(
     (sum, m) => sum + (Number(m.amount) || 0),
     0
   );
   const targetNum = Math.max(100, parseFloat(totalBudget) || 3000);
   const budgetDiff = Math.round((targetNum - totalAllocated) * 100) / 100;
+
+  const handleSelectCategory = (cat: (typeof DELIVERABLE_CATEGORIES)[0]) => {
+    setDeliverableType(cat.id);
+    setRepoUrl(cat.defaultArtifactUrl);
+  };
 
   const toggleExpand = (idx: number) => {
     setExpandedMilestoneIndices((prev) =>
@@ -115,14 +199,16 @@ export function NewProjectInviteModal({
     setIsDecomposing(true);
     try {
       const breakdown = await generateProjectScopeBreakdownAction({
-        title: title.trim() || "Custom Software Contract",
+        title: title.trim() || `Custom ${activeCategory.label} Contract`,
         description: description.trim(),
         totalBudget: targetNum,
+        deliverableType,
       });
       setGeneratedMilestones(
         breakdown.map((m, idx) => ({
           ...m,
           id: `draft_ms_${Date.now()}_${idx}`,
+          deliverable_type: deliverableType,
         }))
       );
       setExpandedMilestoneIndices([0, 1, 2]);
@@ -242,6 +328,7 @@ export function NewProjectInviteModal({
       const generated = await generateSmartCriteriaAction({
         title: target.title || "Feature Milestone",
         description: target.description || description,
+        deliverableType,
       });
       if (generated && generated.length > 0) {
         setGeneratedMilestones((prev) =>
@@ -299,7 +386,7 @@ export function NewProjectInviteModal({
       if (activeDrafts.length === 0) {
         if (!description.trim()) {
           setErrorMsg(
-            "Please provide an architectural brief or add at least one custom milestone before creating the contract."
+            "Please provide a project brief or add at least one custom milestone before creating the contract."
           );
           setIsSubmitting(false);
           return;
@@ -308,6 +395,7 @@ export function NewProjectInviteModal({
           title: title.trim(),
           description: description.trim(),
           totalBudget: targetNum,
+          deliverableType,
         });
       }
 
@@ -322,10 +410,11 @@ export function NewProjectInviteModal({
         title: m.title.trim() || `Milestone ${idx + 1}`,
         description:
           m.description.trim() ||
-          `Deliverable for ${m.title} verified via GitHub commit diffs.`,
+          `Deliverable for ${m.title} verified via AutoScribe ${activeCategory.label} agent.`,
         amount: Math.max(10, Number(m.amount) || 100),
         status: "pending",
         release_mode: m.release_mode,
+        deliverable_type: deliverableType,
         acceptance_criteria:
           m.acceptance_criteria.length > 0
             ? m.acceptance_criteria
@@ -333,7 +422,10 @@ export function NewProjectInviteModal({
                 {
                   id: `crit_${Date.now()}_${idx}_1`,
                   label: `Verify complete delivery of ${m.title}`,
-                  requiredFilePattern: "src/**/*.ts*",
+                  requiredFilePattern:
+                    deliverableType === "code"
+                      ? "src/**/*.ts*"
+                      : "deliverables/*",
                   passed: null,
                 },
               ],
@@ -350,8 +442,9 @@ export function NewProjectInviteModal({
         title: title.trim(),
         description:
           description.trim() ||
-          `Escrow-protected delivery for ${title.trim()} verified via GitHub commit diffs.`,
+          `Escrow-protected delivery for ${title.trim()} (${activeCategory.label}) verified by AutoScribe.`,
         repo_url: repoUrl.trim(),
+        deliverable_type: deliverableType,
         client_id: clientUser.id,
         client_name: clientUser.name,
         client_email: clientUser.email,
@@ -421,7 +514,61 @@ export function NewProjectInviteModal({
               </div>
             )}
 
-            {/* Contract Basics: Title, Budget & GitHub */}
+            {/* 1. Deliverable Discipline / Contract Category Selector */}
+            <div className="rounded-[14px] bg-[#011d1c] border border-white/10 p-5 space-y-3">
+              <div>
+                <label className="auros-caption block text-[#edfffe]">
+                  DELIVERABLE DISCIPLINE // CONTRACT CATEGORY
+                </label>
+                <p className="text-xs text-[#bbc7c6] mt-0.5">
+                  Select your work category so the AutoScribe AI Agent tailors the verification rubric, criteria, and artifact inspection.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
+                {DELIVERABLE_CATEGORIES.map((cat) => {
+                  const Icon = cat.icon;
+                  const isSelected = deliverableType === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => handleSelectCategory(cat)}
+                      className={`p-3 rounded-[10px] text-left transition-all cursor-pointer border flex flex-col justify-between gap-2.5 ${
+                        isSelected
+                          ? "bg-[#003734] border-[#cbfffc] ring-1 ring-[#cbfffc]/50 text-white shadow-md"
+                          : "bg-[#012624] border-white/10 text-[#bbc7c6] hover:text-white hover:border-white/20"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <div
+                          className={`w-7 h-7 rounded-[6px] flex items-center justify-center ${
+                            isSelected
+                              ? "bg-[#cbfffc] text-[#012624]"
+                              : "bg-[#003734] text-[#cbfffc]"
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        {isSelected && (
+                          <span className="w-2 h-2 rounded-full bg-[#cbfffc]" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-white leading-tight">
+                          {cat.label}
+                        </p>
+                        <p className="text-[10px] text-[#bbc7c6] line-clamp-1 mt-0.5">
+                          {cat.tagline}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 2. Contract Basics: Title, Budget & Artifact Target */}
             <div className="rounded-[14px] bg-[#011d1c] border border-white/10 p-5 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -464,7 +611,15 @@ export function NewProjectInviteModal({
                     <input
                       type="text"
                       required
-                      placeholder="e.g. AI Resume Parser & Career Matcher SaaS"
+                      placeholder={`e.g. ${
+                        deliverableType === "design"
+                          ? "Mobile App UI/UX & Design System"
+                          : deliverableType === "content"
+                          ? "B2B SaaS Growth & SEO Content Package"
+                          : deliverableType === "data"
+                          ? "Customer Lead Enrichment & Analytics Sheet"
+                          : "AI Resume Parser & Career Matcher SaaS"
+                      }`}
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       className="w-full bg-transparent text-sm text-white placeholder-[#707777] focus:outline-none"
@@ -493,15 +648,16 @@ export function NewProjectInviteModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                 <div>
                   <label className="auros-caption block mb-1.5 text-[#edfffe]">
-                    GITHUB REPOSITORY (LOCKED)
+                    {activeCategory.artifactLabel}
                   </label>
                   <div className="auros-input-shell flex items-center gap-2.5">
-                    <GitBranch className="w-4 h-4 text-[#cbfffc] shrink-0" />
+                    <activeCategory.icon className="w-4 h-4 text-[#cbfffc] shrink-0" />
                     <input
                       type="text"
                       required
                       value={repoUrl}
                       onChange={(e) => setRepoUrl(e.target.value)}
+                      placeholder={activeCategory.artifactPlaceholder}
                       className="w-full bg-transparent text-xs font-mono text-[#edfffe] focus:outline-none"
                     />
                   </div>
@@ -526,20 +682,20 @@ export function NewProjectInviteModal({
               </div>
             </div>
 
-            {/* Project Architectural Brief */}
+            {/* 3. Project Scope Brief */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="auros-caption text-[#edfffe]">
                   PROJECT ARCHITECTURAL BRIEF
                 </label>
                 <span className="text-[11px] text-[#bbc7c6] font-mono">
-                  Used by AI to decompose scope or draft verification criteria
+                  Used by AI to decompose {activeCategory.label.toLowerCase()} deliverables
                 </span>
               </div>
               <div className="auros-input-shell">
                 <textarea
                   rows={2}
-                  placeholder="Outline key deliverables (e.g. 1. Resume PDF upload API & text extractor, 2. AI semantic matcher with vector embeddings, 3. Candidate scoring UI with CSV export)..."
+                  placeholder={activeCategory.briefPlaceholder}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full bg-transparent text-sm text-[#edfffe] placeholder-[#707777] focus:outline-none leading-[1.55]"

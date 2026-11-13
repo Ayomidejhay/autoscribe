@@ -23,6 +23,13 @@ export type ReleaseMode = "autonomous" | "copilot";
 
 export type InviteStatus = "pending_invite" | "accepted";
 
+export type DeliverableType =
+  | "code"
+  | "design"
+  | "content"
+  | "data"
+  | "general";
+
 export type LogLevel = "info" | "warning" | "security_alert" | "success";
 
 export interface AcceptanceCriterion {
@@ -75,6 +82,7 @@ export interface Milestone {
   status: MilestoneStatus;
   release_mode: ReleaseMode;
   acceptance_criteria: AcceptanceCriterion[];
+  deliverable_type?: DeliverableType;
   github_commit_url?: string;
   preview_url?: string;
   ai_confidence_score?: number;
@@ -88,6 +96,7 @@ export interface Project {
   title: string;
   description: string;
   repo_url: string;
+  deliverable_type?: DeliverableType;
   client_id: string;
   client_name: string;
   client_email: string;

@@ -18,6 +18,10 @@ import {
   MailCheck,
   Loader2,
   ShieldCheck,
+  Palette,
+  FileText,
+  Database,
+  Package,
 } from "lucide-react";
 import { useAutoScribe } from "@/context/AutoScribeStore";
 import {
@@ -767,110 +771,182 @@ export default function FreelancerDashboardPage() {
                                     })}
                                   </div>
 
-                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] font-mono text-[#bbc7c6] px-1 gap-1">
-                                    <span className="flex items-center gap-1.5 flex-wrap">
-                                      <Lock className="w-3 h-3 text-[#cbfffc]" />
-                                      <span>Contract Repository:</span>
-                                      <span className="text-[#cbfffc] font-semibold break-all">
-                                        {activeProject.repo_url}
-                                      </span>
-                                    </span>
-                                    <span className="text-[#bbc7c6]/70 text-[10px]">
-                                      Strict AI Diff & Repo Bound
-                                    </span>
-                                  </div>
-
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                                    <div className="flex items-center gap-3 rounded-[8px] bg-[#012624] px-4 py-3.5">
-                                      <GitCommit className="w-4 h-4 text-[#cbfffc] shrink-0" />
-                                      <input
-                                        type="text"
-                                        value={commitUrlInput}
-                                        onChange={(e) =>
-                                          setCommitUrlInput(e.target.value)
-                                        }
-                                        placeholder="https://github.com/owner/repo/commit/sha"
-                                        className="w-full bg-transparent text-xs font-mono text-[#edfffe] focus:outline-none"
-                                      />
-                                    </div>
-                                    <div className="flex items-center gap-3 rounded-[8px] bg-[#012624] px-4 py-3.5">
-                                      <Globe className="w-4 h-4 text-[#cbfffc] shrink-0" />
-                                      <input
-                                        type="text"
-                                        value={previewUrlInput}
-                                        onChange={(e) =>
-                                          setPreviewUrlInput(e.target.value)
-                                        }
-                                        placeholder="https://preview-url.vercel.app"
-                                        className="w-full bg-transparent text-xs font-mono text-[#edfffe] focus:outline-none"
-                                      />
-                                    </div>
-                                  </div>
-
                                   {(() => {
-                                    const isCustomInput =
-                                      !milestonePresets.some(
-                                        (p) =>
-                                          p.commitUrl.toLowerCase() ===
-                                          commitUrlInput.trim().toLowerCase()
-                                      );
-                                    const contractMatch =
-                                      activeProject.repo_url.match(
-                                        /github\.com\/([^/]+)\/([^/]+)/i
-                                      );
-                                    const inputMatch = commitUrlInput
-                                      .trim()
-                                      .match(
-                                        /github\.com\/([^/]+)\/([^/]+)\/commit/i
-                                      );
-                                    if (
-                                      isCustomInput &&
-                                      contractMatch &&
-                                      inputMatch
-                                    ) {
-                                      const expected = `${
-                                        contractMatch[1]
-                                      }/${contractMatch[2].replace(
-                                        /\.git$/i,
-                                        ""
-                                      )}`.toLowerCase();
-                                      const actual = `${
-                                        inputMatch[1]
-                                      }/${inputMatch[2].replace(
-                                        /\.git$/i,
-                                        ""
-                                      )}`.toLowerCase();
-                                      const isPlaceholder =
-                                        contractMatch[1].toLowerCase() ===
-                                        "acme-labs";
-                                      if (!isPlaceholder && expected !== actual) {
-                                        return (
-                                          <div className="text-[11px] font-mono text-amber-300 bg-amber-950/40 border border-amber-500/30 rounded-[8px] p-3 flex items-start gap-2">
-                                            <span className="shrink-0 text-sm">
-                                              ⚠️
+                                    const isCodeProject =
+                                      !activeProject.deliverable_type ||
+                                      activeProject.deliverable_type === "code";
+                                    const deliverableLabel =
+                                      activeProject.deliverable_type === "design"
+                                        ? "Contract Figma Workspace"
+                                        : activeProject.deliverable_type ===
+                                          "content"
+                                        ? "Contract Editorial Workspace"
+                                        : activeProject.deliverable_type ===
+                                          "data"
+                                        ? "Contract Dataset Workspace"
+                                        : activeProject.deliverable_type ===
+                                          "general"
+                                        ? "Contract Asset Workspace"
+                                        : "Contract Repository";
+
+                                    const DeliverableIcon =
+                                      activeProject.deliverable_type === "design"
+                                        ? Palette
+                                        : activeProject.deliverable_type ===
+                                          "content"
+                                        ? FileText
+                                        : activeProject.deliverable_type ===
+                                          "data"
+                                        ? Database
+                                        : activeProject.deliverable_type ===
+                                          "general"
+                                        ? Package
+                                        : GitCommit;
+
+                                    const inputPlaceholder =
+                                      activeProject.deliverable_type === "design"
+                                        ? "https://figma.com/file/... (Figma File Link)"
+                                        : activeProject.deliverable_type ===
+                                          "content"
+                                        ? "https://docs.google.com/document/d/... (Doc / Notion Link)"
+                                        : activeProject.deliverable_type ===
+                                          "data"
+                                        ? "https://docs.google.com/spreadsheets/d/... (Sheet Link)"
+                                        : activeProject.deliverable_type ===
+                                          "general"
+                                        ? "https://drive.google.com/drive/folders/... (Asset Link)"
+                                        : "https://github.com/owner/repo/commit/sha";
+
+                                    const previewPlaceholder =
+                                      activeProject.deliverable_type === "design"
+                                        ? "https://prototype.figma.site (Interactive Prototype)"
+                                        : activeProject.deliverable_type ===
+                                          "content"
+                                        ? "https://staging.domain.com (Published / Staging Link)"
+                                        : activeProject.deliverable_type ===
+                                          "data"
+                                        ? "https://lookerstudio.google.com/... (Dashboard Link)"
+                                        : "https://preview-url.vercel.app";
+
+                                    return (
+                                      <div className="space-y-3.5">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] font-mono text-[#bbc7c6] px-1 gap-1">
+                                          <span className="flex items-center gap-1.5 flex-wrap">
+                                            <Lock className="w-3 h-3 text-[#cbfffc]" />
+                                            <span>{deliverableLabel}:</span>
+                                            <span className="text-[#cbfffc] font-semibold break-all">
+                                              {activeProject.repo_url}
                                             </span>
-                                            <span>
-                                              <strong>
-                                                Repository Mismatch Warning:
-                                              </strong>{" "}
-                                              Submitted commit belongs to{" "}
-                                              <code className="text-white bg-black/40 px-1 py-0.5 rounded">
-                                                {actual}
-                                              </code>
-                                              , but this contract is strictly bound
-                                              to{" "}
-                                              <code className="text-[#cbfffc] bg-black/40 px-1 py-0.5 rounded">
-                                                {expected}
-                                              </code>
-                                              . The AutoScribe Agent will reject
-                                              external commits to protect escrow
-                                              integrity.
-                                            </span>
+                                          </span>
+                                          <span className="text-[#bbc7c6]/70 text-[10px]">
+                                            {isCodeProject
+                                              ? "Strict AI Diff & Repo Bound"
+                                              : `AI ${activeProject.deliverable_type?.toUpperCase()} Audit`}
+                                          </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                          <div className="flex items-center gap-3 rounded-[8px] bg-[#012624] px-4 py-3.5">
+                                            <DeliverableIcon className="w-4 h-4 text-[#cbfffc] shrink-0" />
+                                            <input
+                                              type="text"
+                                              value={commitUrlInput}
+                                              onChange={(e) =>
+                                                setCommitUrlInput(e.target.value)
+                                              }
+                                              placeholder={inputPlaceholder}
+                                              className="w-full bg-transparent text-xs font-mono text-[#edfffe] focus:outline-none"
+                                            />
                                           </div>
-                                        );
-                                      }
-                                    }
-                                    return null;
+                                          <div className="flex items-center gap-3 rounded-[8px] bg-[#012624] px-4 py-3.5">
+                                            <Globe className="w-4 h-4 text-[#cbfffc] shrink-0" />
+                                            <input
+                                              type="text"
+                                              value={previewUrlInput}
+                                              onChange={(e) =>
+                                                setPreviewUrlInput(
+                                                  e.target.value
+                                                )
+                                              }
+                                              placeholder={previewPlaceholder}
+                                              className="w-full bg-transparent text-xs font-mono text-[#edfffe] focus:outline-none"
+                                            />
+                                          </div>
+                                        </div>
+
+                                        {isCodeProject &&
+                                          (() => {
+                                            const isCustomInput =
+                                              !milestonePresets.some(
+                                                (p) =>
+                                                  p.commitUrl.toLowerCase() ===
+                                                  commitUrlInput
+                                                    .trim()
+                                                    .toLowerCase()
+                                              );
+                                            const contractMatch =
+                                              activeProject.repo_url.match(
+                                                /github\.com\/([^/]+)\/([^/]+)/i
+                                              );
+                                            const inputMatch = commitUrlInput
+                                              .trim()
+                                              .match(
+                                                /github\.com\/([^/]+)\/([^/]+)\/commit/i
+                                              );
+                                            if (
+                                              isCustomInput &&
+                                              contractMatch &&
+                                              inputMatch
+                                            ) {
+                                              const expected = `${
+                                                contractMatch[1]
+                                              }/${contractMatch[2].replace(
+                                                /\.git$/i,
+                                                ""
+                                              )}`.toLowerCase();
+                                              const actual = `${
+                                                inputMatch[1]
+                                              }/${inputMatch[2].replace(
+                                                /\.git$/i,
+                                                ""
+                                              )}`.toLowerCase();
+                                              const isPlaceholder =
+                                                contractMatch[1].toLowerCase() ===
+                                                "acme-labs";
+                                              if (
+                                                !isPlaceholder &&
+                                                expected !== actual
+                                              ) {
+                                                return (
+                                                  <div className="text-[11px] font-mono text-amber-300 bg-amber-950/40 border border-amber-500/30 rounded-[8px] p-3 flex items-start gap-2">
+                                                    <span className="shrink-0 text-sm">
+                                                      ⚠️
+                                                    </span>
+                                                    <span>
+                                                      <strong>
+                                                        Repository Mismatch
+                                                        Warning:
+                                                      </strong>{" "}
+                                                      Submitted commit belongs
+                                                      to{" "}
+                                                      <code className="text-white bg-black/40 px-1 py-0.5 rounded">
+                                                        {actual}
+                                                      </code>
+                                                      , but this contract is
+                                                      strictly bound to{" "}
+                                                      <code className="text-[#cbfffc] bg-black/40 px-1 py-0.5 rounded">
+                                                        {expected}
+                                                      </code>
+                                                      .
+                                                    </span>
+                                                  </div>
+                                                );
+                                              }
+                                            }
+                                            return null;
+                                          })()}
+                                      </div>
+                                    );
                                   })()}
 
                                   <button
